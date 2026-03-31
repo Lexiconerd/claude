@@ -193,6 +193,7 @@ const styles = `
     gap: 8px;
     align-items: center;
     margin-bottom: 10px;
+    flex-wrap: wrap;
   }
   .input-row:last-child { margin-bottom: 0; }
   .text-input {
