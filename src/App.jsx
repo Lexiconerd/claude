@@ -316,7 +316,16 @@ const styles = `
     letter-spacing: 0.02em;
   }
   .assignee-pill { background: #eee8fa; color: #7c5cbf; font-size: 11px; font-weight: 600; }
+  .label-pill-work { background: #e8f0fe; color: #4a7cc9; }
+  .label-pill-personal { background: #f0ebe3; color: #8a7d6b; }
   .overdue { color: #d4644a !important; font-weight: 600; }
+  .todo-note {
+    font-size: 13px;
+    color: #8a7d6b;
+    margin-top: 3px;
+    word-break: break-word;
+    font-style: italic;
+  }
 
   .delete-btn {
     background: none; border: none; cursor: pointer;
@@ -398,6 +407,8 @@ function TasksPage({ saveStatus }) {
   const [pri, setPri]       = useState("medium");
   const [due, setDue]       = useState("");
   const [who, setWho]       = useState("Jay");
+  const [label, setLabel]   = useState("personal");
+  const [note, setNote]     = useState("");
   const [filter, setFilter] = useState("active");
   const [fWho, setFWho]     = useState(null);
   const [fPri, setFPri]     = useState(null);
@@ -406,8 +417,8 @@ function TasksPage({ saveStatus }) {
 
   async function add() {
     const t = text.trim(); if (!t) return;
-    await addItem({ text: t, done: false, priority: pri, due: due || null, who });
-    setText(""); setDue(""); inputRef.current?.focus();
+    await addItem({ text: t, done: false, priority: pri, due: due || null, who, label, note: note.trim() || null });
+    setText(""); setDue(""); setNote(""); inputRef.current?.focus();
   }
   function toggle(task) { updateItem(task.id, { done: !task.done }); }
   function remove(id) { deleteItem(id); }
@@ -480,7 +491,15 @@ function TasksPage({ saveStatus }) {
               <button key={n} className={`assignee-opt ${who===n?"active":""}`} onClick={()=>setWho(n)}>{n}</button>
             ))}
           </div>
+          <select className="mini-select" value={label} onChange={e=>setLabel(e.target.value)}>
+            <option value="personal">Personal</option>
+            <option value="work">Work</option>
+          </select>
           <input type="date" className="mini-input" value={due} onChange={e=>setDue(e.target.value)} />
+        </div>
+        <div className="input-row">
+          <input className="text-input" placeholder="Add a note (optional)" value={note}
+            onChange={e=>setNote(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} />
         </div>
       </div>
 
@@ -499,9 +518,11 @@ function TasksPage({ saveStatus }) {
               </button>
               <div className="todo-content">
                 <div className={`todo-text ${task.done?"done":""}`}>{task.text}</div>
+                {task.note && <div className="todo-note">{task.note}</div>}
                 <div className="todo-meta">
                   <span className="pill" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
                   <span className="pill assignee-pill">{task.who || "Jay"}</span>
+                  <span className={`pill label-pill-${task.label || "personal"}`}>{task.label === "work" ? "Work" : "Personal"}</span>
                   <span className={`pill ${dueObj.overdue?"overdue":""}`} style={{ background: dueObj.overdue ? "#fef0ed" : "#f0ebe3", color: dueObj.overdue ? "#d4644a" : "#8a7d6b" }}>
                     {dueObj.label}
                   </span>
