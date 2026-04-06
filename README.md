@@ -7,10 +7,11 @@ These projects were built with the help of Claude, Anthropic's AI assistant, and
 
 ## Projects
 
-### Organizer
-A shared task and grocery list app for Jay and Kathleen. Built with React + Vite, backed by Supabase for real-time cross-device sync, and deployed to GitHub Pages.
+### Hearth
+A shared home hub for Jay and Kathleen — tasks, groceries, and plant care. Built with React + Vite, backed by Supabase for real-time cross-device sync, and deployed to GitHub Pages.
 
-- **Tasks**: Priority levels, due dates, assignees (Jay/Kathleen)
+- **Tasks**: Priority levels, due dates, assignees (Jay/Kathleen), labels (work/personal)
 - **Groceries**: Simple item list with quantities
+- **Plants**: Houseplant tracker with watering schedules, care tips, and seasonal intelligence
 - **Real-time sync**: Changes appear on all devices instantly
 - **Password protected**: Simple shared password gate
