@@ -1,12 +1,19 @@
 import { useState } from 'react'
 
 const APP_PASSWORD = import.meta.env.VITE_APP_PASSWORD
-const STORAGE_KEY = 'organizer_auth'
+const STORAGE_KEY = 'hearth_auth'
+const OLD_STORAGE_KEY = 'organizer_auth'
 
 export default function PasswordGate({ children }) {
-  const [authenticated, setAuthenticated] = useState(
-    () => localStorage.getItem(STORAGE_KEY) === APP_PASSWORD
-  )
+  const [authenticated, setAuthenticated] = useState(() => {
+    // Migrate from old key if it exists
+    const oldVal = localStorage.getItem(OLD_STORAGE_KEY)
+    if (oldVal && !localStorage.getItem(STORAGE_KEY)) {
+      localStorage.setItem(STORAGE_KEY, oldVal)
+      localStorage.removeItem(OLD_STORAGE_KEY)
+    }
+    return localStorage.getItem(STORAGE_KEY) === APP_PASSWORD
+  })
   const [input, setInput] = useState('')
   const [error, setError] = useState(false)
 
@@ -94,7 +101,7 @@ export default function PasswordGate({ children }) {
       `}</style>
       <div className="gate">
         <form className="gate-card" onSubmit={handleSubmit}>
-          <h1 className="gate-title"><em>Organ</em>izer</h1>
+          <h1 className="gate-title"><em>He</em>arth</h1>
           <p className="gate-sub">Enter the password to continue</p>
           <input
             className={`gate-input ${error ? 'error' : ''}`}
