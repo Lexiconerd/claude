@@ -89,3 +89,34 @@ CREATE POLICY "Allow all uploads" ON storage.objects FOR INSERT WITH CHECK (buck
 CREATE POLICY "Allow all reads" ON storage.objects FOR SELECT USING (bucket_id = 'plant-photos');
 CREATE POLICY "Allow all updates" ON storage.objects FOR UPDATE USING (bucket_id = 'plant-photos');
 CREATE POLICY "Allow all deletes" ON storage.objects FOR DELETE USING (bucket_id = 'plant-photos');
+
+-- ============================================================
+-- Phase 2: Recurring Tasks
+-- ============================================================
+CREATE TABLE IF NOT EXISTS recurring_tasks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  cadence_type text NOT NULL CHECK (cadence_type IN ('daily','weekly','interval')),
+  interval_days int,
+  days_of_week int[],
+  who text DEFAULT 'Jay',
+  notes text,
+  last_completed_at timestamptz,
+  next_due_at date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS recurring_completions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recurring_task_id uuid NOT NULL REFERENCES recurring_tasks(id) ON DELETE CASCADE,
+  completed_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE recurring_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recurring_completions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on recurring_tasks" ON recurring_tasks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on recurring_completions" ON recurring_completions FOR ALL USING (true) WITH CHECK (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE recurring_tasks;
+ALTER PUBLICATION supabase_realtime ADD TABLE recurring_completions;

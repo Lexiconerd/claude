@@ -25,6 +25,32 @@ function formatDue(due) {
 
 const PO = { high: 0, medium: 1, low: 2 };
 
+/* ─── Recurring helpers ─────────────────────────────────────────────────── */
+function computeNextDue(cadence_type, interval_days, days_of_week, fromDate) {
+  const base = new Date(fromDate);
+  if (cadence_type === 'daily') {
+    base.setDate(base.getDate() + 1);
+  } else if (cadence_type === 'interval') {
+    base.setDate(base.getDate() + (interval_days || 1));
+  } else if (cadence_type === 'weekly') {
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(base); d.setDate(d.getDate() + i);
+      if (days_of_week?.includes(d.getDay())) return d.toISOString().slice(0,10);
+    }
+  }
+  return base.toISOString().slice(0,10);
+}
+
+function recurringStatus(next_due_at) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(next_due_at + "T00:00:00");
+  const diff = Math.round((due - today) / 86400000);
+  if (diff < 0)   return { label: `${Math.abs(diff)}d overdue`, cls: "water-overdue" };
+  if (diff === 0) return { label: "today",    cls: "water-soon" };
+  if (diff === 1) return { label: "tomorrow", cls: "water-ok" };
+  return { label: `in ${diff}d`, cls: "water-ok" };
+}
+
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
 function CheckIcon() {
   return (<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>);
@@ -33,16 +59,6 @@ function TrashIcon() {
   return (<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><polyline points="1,3 12,3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M4,3V2a1,1,0,0,1,1-1h3a1,1,0,0,1,1,1v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><rect x="2" y="3" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.5"/></svg>);
 }
 
-/* ─── Tab Icons ────────────────────────────────────────────────────────── */
-function TasksIcon() {
-  return (<svg className="tab-icon" width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/><polyline points="4,7 6,9 10,5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>);
-}
-function GroceriesIcon() {
-  return (<svg className="tab-icon" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1L1 4v8a1 1 0 001 1h10a1 1 0 001-1V4L11 1H3z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/><line x1="1" y1="4" x2="13" y2="4" stroke="currentColor" strokeWidth="1.3"/><path d="M5 7a2 2 0 004 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>);
-}
-function PlantsIcon() {
-  return (<svg className="tab-icon" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 13V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M7 7C7 4 4 2 1 2c0 3 2 5 6 5z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M7 9C7 6 10 4 13 4c0 3-2 5-6 5z" stroke="currentColor" strokeWidth="1.3" fill="none"/></svg>);
-}
 
 /* ─── Empty State Illustrations ────────────────────────────────────────── */
 function EmptyTasksIllustration() {
@@ -356,7 +372,8 @@ const styles = `
     transition: all 0.15s;
     flex-shrink: 0;
   }
-  .check-btn:hover { border-color: #82b78e; background: #eef7f0; }
+  .check-btn:hover { border-color: #b0a48e; background: #f4efe7; }
+  .check-btn:active { transform: scale(0.82); background: #82b78e; border-color: #82b78e; color: white; }
   .check-btn.checked { background: #82b78e; border-color: #82b78e; color: white; }
 
   .todo-content { flex: 1; min-width: 0; }
@@ -458,7 +475,8 @@ const styles = `
     transition: all 0.15s;
     flex-shrink: 0;
   }
-  .item-check:hover { border-color: #82b78e; background: #eef7f0; }
+  .item-check:hover { border-color: #b0a48e; background: #f4efe7; }
+  .item-check:active { transform: scale(0.82); background: #82b78e; border-color: #82b78e; color: white; }
   .item-check.got { background: #82b78e; border-color: #82b78e; color: white; }
 
   .loading {
@@ -796,6 +814,29 @@ const styles = `
     transition: all 0.15s;
   }
   .change-photo-btn:hover { border-color: #b07d3a; color: #5a4e3c; }
+
+  .sub-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee8dc;
+    padding-bottom: 0;
+  }
+  .sub-tab {
+    padding: 8px 14px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: #8a7d6b;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s ease;
+  }
+  .sub-tab:hover { color: #5a4e3c; }
+  .sub-tab.active { color: #b07d3a; border-bottom-color: #b07d3a; font-weight: 600; }
 `;
 
 /* ━━━ Tasks Page ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -1463,14 +1504,186 @@ function PlantsPage({ saveStatus }) {
   );
 }
 
+/* ━━━ Recurring Tasks Page ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function RecurringTasksPage() {
+  const { items: tasks, loading, addItem, updateItem, deleteItem } = useSupabase('recurring_tasks');
+  const { addItem: addCompletion } = useSupabase('recurring_completions');
+
+  const [title, setTitle]           = useState("");
+  const [cadence, setCadence]       = useState("daily");
+  const [intervalDays, setIntervalDays] = useState(7);
+  const [daysOfWeek, setDaysOfWeek] = useState([]);
+  const [who, setWho]               = useState("Jay");
+  const [notes, setNotes]           = useState("");
+  const [filter, setFilter]         = useState("all");
+  const inputRef = useRef(null);
+
+  function toggleDay(d) {
+    setDaysOfWeek(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+  }
+
+  async function add() {
+    const t = title.trim(); if (!t) return;
+    const today = new Date().toISOString().slice(0,10);
+    await addItem({
+      title: t,
+      cadence_type: cadence,
+      interval_days: cadence === 'interval' ? (intervalDays || 7) : null,
+      days_of_week: cadence === 'weekly' ? daysOfWeek : null,
+      who,
+      notes: notes.trim() || null,
+      next_due_at: today,
+    });
+    setTitle(""); setNotes(""); setDaysOfWeek([]);
+    inputRef.current?.focus();
+  }
+
+  async function markDone(task) {
+    const now = new Date().toISOString();
+    const today = now.slice(0,10);
+    await addCompletion({ recurring_task_id: task.id, completed_at: now });
+    await updateItem(task.id, {
+      last_completed_at: now,
+      next_due_at: computeNextDue(task.cadence_type, task.interval_days, task.days_of_week, today),
+    });
+  }
+
+  let visible = [...tasks].sort((a, b) => new Date(a.next_due_at) - new Date(b.next_due_at));
+
+  if (filter === "today") {
+    const today = new Date().toISOString().slice(0,10);
+    visible = visible.filter(t => t.next_due_at === today);
+  } else if (filter === "overdue") {
+    const today = new Date().toISOString().slice(0,10);
+    visible = visible.filter(t => t.next_due_at < today);
+  }
+
+  if (loading) return <div className="loading">Loading recurring tasks...</div>;
+
+  return (
+    <>
+      <div className="filter-bar">
+        <div className="filter-group">
+          {["all","today","overdue"].map(f => (
+            <button key={f} className={`filter-btn ${filter===f?"active":""}`} onClick={()=>setFilter(f)}>
+              {f.charAt(0).toUpperCase()+f.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="input-area">
+        <div className="input-row">
+          <input ref={inputRef} className="text-input" placeholder="Task name…" value={title}
+            onChange={e=>setTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} />
+          <button className="add-btn" onClick={add}>Add</button>
+        </div>
+        <div className="input-row">
+          <select className="mini-select" value={cadence} onChange={e=>setCadence(e.target.value)}>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="interval">Every N days</option>
+          </select>
+          {cadence === 'interval' && (
+            <input type="number" className="mini-input" style={{width:70}} min={1} value={intervalDays}
+              onChange={e=>setIntervalDays(parseInt(e.target.value)||1)} />
+          )}
+          <div className="assignee-toggle">
+            {["Jay","Kathleen"].map(n => (
+              <button key={n} className={`assignee-opt ${who===n?"active":""}`} onClick={()=>setWho(n)}>{n}</button>
+            ))}
+          </div>
+        </div>
+        {cadence === 'weekly' && (
+          <div className="input-row">
+            {DAYS.map((d, i) => (
+              <button key={i} className={`filter-btn ${daysOfWeek.includes(i)?"active":""}`}
+                style={{padding:'4px 9px', fontSize:12}} onClick={()=>toggleDay(i)}>
+                {d}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="input-row">
+          <input className="text-input" placeholder="Notes (optional)" value={notes}
+            onChange={e=>setNotes(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} />
+        </div>
+      </div>
+
+      <div className="list">
+        {visible.length === 0 ? (
+          <div className="empty"><p style={{fontStyle:"italic"}}>
+            {filter === "today" ? "Nothing due today." : filter === "overdue" ? "Nothing overdue." : "No recurring tasks yet."}
+          </p></div>
+        ) : visible.map(task => {
+          const st = recurringStatus(task.next_due_at);
+          const cadenceLabel = task.cadence_type === 'daily' ? 'daily'
+            : task.cadence_type === 'interval' ? `every ${task.interval_days}d`
+            : task.days_of_week?.map(d=>DAYS[d]).join(', ') || 'weekly';
+          return (
+            <div key={task.id} className="todo-item">
+              <div className="todo-content">
+                <div className="todo-text">{task.title}</div>
+                <div className="todo-meta">
+                  <span className="pill assignee-pill">{task.who || "Jay"}</span>
+                  <span className={`pill water-status ${st.cls}`}>{st.label}</span>
+                  <span className="pill" style={{background:"#f0ebe3",color:"#8a7d6b"}}>{cadenceLabel}</span>
+                </div>
+                {task.notes && <div className="todo-note">{task.notes}</div>}
+              </div>
+              <button className="water-btn" onClick={()=>markDone(task)}>Done</button>
+              <button className="delete-btn" onClick={()=>deleteItem(task.id)}><TrashIcon /></button>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+/* ━━━ Navigation config ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const SECTIONS = [
+  { id: "todos", label: "To-Dos", subTabs: [
+    { id: "onetime",   label: "One-time" },
+    { id: "recurring", label: "Recurring" },
+    { id: "plants",    label: "Plants" },
+  ]},
+  { id: "food", label: "Food", subTabs: [
+    { id: "groceries", label: "Groceries" },
+  ]},
+  { id: "fitness", label: "Fitness", subTabs: [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "plan",      label: "Plan" },
+    { id: "log",       label: "Log" },
+    { id: "blocks",    label: "Blocks" },
+    { id: "shoes",     label: "Shoes" },
+  ]},
+];
+
 /* ━━━ Root ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 export default function Hearth() {
-  const [page, setPage] = useState("tasks");
+  const [section, setSection] = useState("todos");
+  const [subTab, setSubTab] = useState({ todos: "onetime", food: "groceries", fitness: "dashboard" });
   const [saveStatus, setSaveStatus] = useState("saved");
 
-  // Subtle seasonal background tint
+  function switchSection(id) { setSection(id); }
+  function switchSubTab(id) { setSubTab(prev => ({ ...prev, [section]: id })); }
+
+  const activeSub = subTab[section];
   const season = getSeason();
   const seasonBg = (season === "fall" || season === "winter") ? "#f5eee4" : (season === "spring" || season === "summer") ? "#f2f1eb" : "#f6f1eb";
+
+  function renderPage() {
+    switch (`${section}/${activeSub}`) {
+      case "todos/onetime":    return <TasksPage saveStatus={saveStatus} />;
+      case "todos/recurring":  return <RecurringTasksPage />;
+      case "todos/plants":     return <PlantsPage saveStatus={saveStatus} />;
+      case "food/groceries": return <GroceriesPage saveStatus={saveStatus} />;
+      default:               return <div className="empty"><p style={{fontStyle:"italic"}}>Coming soon</p></div>;
+    }
+  }
 
   return (
     <>
@@ -1483,21 +1696,27 @@ export default function Hearth() {
           </div>
 
           <nav className="page-nav">
-            {[["tasks","Tasks",TasksIcon],["groceries","Groceries",GroceriesIcon],["plants","Plants",PlantsIcon]].map(([id,label,Icon]) => (
-              <button key={id} className={`page-tab ${page===id?"active":""}`} onClick={()=>setPage(id)}>
-                <Icon />{label}
+            {SECTIONS.map(s => (
+              <button key={s.id} className={`page-tab ${section===s.id?"active":""}`} onClick={()=>switchSection(s.id)}>
+                {s.label}
               </button>
             ))}
           </nav>
+
+          <div className="sub-nav">
+            {SECTIONS.find(s => s.id === section).subTabs.map(t => (
+              <button key={t.id} className={`sub-tab ${activeSub===t.id?"active":""}`} onClick={()=>switchSubTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
 
           <div className="status-bar">
             <div className={`dot ${saveStatus}`} />
             <span>{saveStatus === "saving" ? "saving" : "saved"}</span>
           </div>
 
-          {page === "tasks" && <TasksPage saveStatus={saveStatus} />}
-          {page === "groceries" && <GroceriesPage saveStatus={saveStatus} />}
-          {page === "plants" && <PlantsPage saveStatus={saveStatus} />}
+          {renderPage()}
         </div>
       </div>
     </>
