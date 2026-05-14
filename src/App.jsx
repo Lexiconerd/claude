@@ -60,6 +60,50 @@ function TrashIcon() {
 }
 
 
+/* ─── Swipeable Item ────────────────────────────────────────────────────── */
+function SwipeableItem({ onSwipeLeft, onSwipeRight, children }) {
+  const [dx, setDx] = useState(0);
+  const startX = useRef(null);
+  const THRESHOLD = 80;
+
+  function onTouchStart(e) { startX.current = e.touches[0].clientX; }
+  function onTouchMove(e) {
+    if (startX.current === null) return;
+    setDx(e.touches[0].clientX - startX.current);
+  }
+  function onTouchEnd() {
+    if (dx < -THRESHOLD) onSwipeLeft?.();
+    else if (dx > THRESHOLD) onSwipeRight?.();
+    setDx(0);
+    startX.current = null;
+  }
+
+  const progress = Math.min(Math.abs(dx) / THRESHOLD, 1);
+  const isLeft = dx < 0, isRight = dx > 0;
+
+  return (
+    <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: isLeft ? `rgba(130,183,142,${progress})` : isRight ? `rgba(212,100,74,${progress})` : 'transparent',
+        display: 'flex', alignItems: 'center',
+        justifyContent: isLeft ? 'flex-end' : 'flex-start',
+        padding: '0 18px', color: 'white',
+      }}>
+        {progress > 0.45 && (isLeft ? <CheckIcon /> : <TrashIcon />)}
+      </div>
+      <div
+        style={{ transform: `translateX(${dx}px)`, transition: dx === 0 ? 'transform 0.25s ease' : 'none', touchAction: 'pan-y' }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Empty State Illustrations ────────────────────────────────────────── */
 function EmptyTasksIllustration() {
   return (
@@ -952,24 +996,26 @@ function TasksPage({ saveStatus }) {
           const pm = priorityMeta(task.priority);
           const dueObj = formatDue(task.due);
           return (
-            <div key={task.id} className={`todo-item ${task.done?"done-item":""}`}>
-              <button className={`check-btn ${task.done?"checked":""}`} onClick={()=>toggle(task)}>
-                {task.done && <CheckIcon />}
-              </button>
-              <div className="todo-content">
-                <div className={`todo-text ${task.done?"done":""}`}>{task.text}</div>
-                {task.note && <div className="todo-note">{task.note}</div>}
-                <div className="todo-meta">
-                  <span className="pill" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
-                  <span className="pill assignee-pill">{task.who || "Jay"}</span>
-                  <span className={`pill label-pill-${task.label || "personal"}`}>{task.label === "work" ? "Work" : "Personal"}</span>
-                  <span className={`pill ${dueObj.overdue?"overdue":""}`} style={{ background: dueObj.overdue ? "#fef0ed" : "#f0ebe3", color: dueObj.overdue ? "#d4644a" : "#8a7d6b" }}>
-                    {dueObj.label}
-                  </span>
+            <SwipeableItem key={task.id} onSwipeLeft={()=>toggle(task)} onSwipeRight={()=>remove(task.id)}>
+              <div className={`todo-item ${task.done?"done-item":""}`}>
+                <button className={`check-btn ${task.done?"checked":""}`} onClick={()=>toggle(task)}>
+                  {task.done && <CheckIcon />}
+                </button>
+                <div className="todo-content">
+                  <div className={`todo-text ${task.done?"done":""}`}>{task.text}</div>
+                  {task.note && <div className="todo-note">{task.note}</div>}
+                  <div className="todo-meta">
+                    <span className="pill" style={{ background: pm.bg, color: pm.color }}>{pm.label}</span>
+                    <span className="pill assignee-pill">{task.who || "Jay"}</span>
+                    <span className={`pill label-pill-${task.label || "personal"}`}>{task.label === "work" ? "Work" : "Personal"}</span>
+                    <span className={`pill ${dueObj.overdue?"overdue":""}`} style={{ background: dueObj.overdue ? "#fef0ed" : "#f0ebe3", color: dueObj.overdue ? "#d4644a" : "#8a7d6b" }}>
+                      {dueObj.label}
+                    </span>
+                  </div>
                 </div>
+                <button className="delete-btn" onClick={()=>remove(task.id)}><TrashIcon /></button>
               </div>
-              <button className="delete-btn" onClick={()=>remove(task.id)}><TrashIcon /></button>
-            </div>
+            </SwipeableItem>
           );
         })}
       </div>
