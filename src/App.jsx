@@ -64,16 +64,24 @@ function TrashIcon() {
 function SwipeableItem({ onSwipeLeft, onSwipeRight, children }) {
   const [dx, setDx] = useState(0);
   const startX = useRef(null);
+  const dxRef = useRef(0);
   const THRESHOLD = 80;
 
-  function onTouchStart(e) { startX.current = e.touches[0].clientX; }
+  function onTouchStart(e) {
+    startX.current = e.touches[0].clientX;
+    dxRef.current = 0;
+  }
   function onTouchMove(e) {
     if (startX.current === null) return;
-    setDx(e.touches[0].clientX - startX.current);
+    const delta = e.touches[0].clientX - startX.current;
+    dxRef.current = delta;
+    setDx(delta);
   }
   function onTouchEnd() {
-    if (dx < -THRESHOLD) onSwipeLeft?.();
-    else if (dx > THRESHOLD) onSwipeRight?.();
+    const finalDx = dxRef.current;
+    if (finalDx < -THRESHOLD) onSwipeLeft?.();
+    else if (finalDx > THRESHOLD) onSwipeRight?.();
+    dxRef.current = 0;
     setDx(0);
     startX.current = null;
   }
@@ -82,7 +90,7 @@ function SwipeableItem({ onSwipeLeft, onSwipeRight, children }) {
   const isLeft = dx < 0, isRight = dx > 0;
 
   return (
-    <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', touchAction: 'pan-y' }}>
       <div style={{
         position: 'absolute', inset: 0,
         background: isLeft ? `rgba(130,183,142,${progress})` : isRight ? `rgba(212,100,74,${progress})` : 'transparent',
@@ -93,7 +101,7 @@ function SwipeableItem({ onSwipeLeft, onSwipeRight, children }) {
         {progress > 0.45 && (isLeft ? <CheckIcon /> : <TrashIcon />)}
       </div>
       <div
-        style={{ transform: `translateX(${dx}px)`, transition: dx === 0 ? 'transform 0.25s ease' : 'none', touchAction: 'pan-y' }}
+        style={{ transform: `translateX(${dx}px)`, transition: dx === 0 ? 'transform 0.25s ease' : 'none' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
