@@ -120,3 +120,79 @@ CREATE POLICY "Allow all on recurring_completions" ON recurring_completions FOR 
 
 ALTER PUBLICATION supabase_realtime ADD TABLE recurring_tasks;
 ALTER PUBLICATION supabase_realtime ADD TABLE recurring_completions;
+
+-- ============================================================
+-- Fitness Log
+-- ============================================================
+CREATE TABLE IF NOT EXISTS workout_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_date date NOT NULL,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS workout_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+  exercise text NOT NULL,
+  sets integer,
+  reps integer,
+  weight numeric,
+  unit text DEFAULT 'lbs',
+  note text,
+  next_session text CHECK (next_session IN ('much_higher','higher','equal','lower','much_lower')),
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS exercise_library (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  category text CHECK (category IN ('lower_body','core','upper_body')),
+  default_sets integer,
+  default_reps integer,
+  notes text
+);
+
+ALTER TABLE workout_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workout_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exercise_library ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all on workout_sessions" ON workout_sessions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on workout_entries" ON workout_entries FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on exercise_library" ON exercise_library FOR ALL USING (true) WITH CHECK (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE workout_sessions;
+ALTER PUBLICATION supabase_realtime ADD TABLE workout_entries;
+ALTER PUBLICATION supabase_realtime ADD TABLE exercise_library;
+
+-- Seed exercise library
+INSERT INTO exercise_library (name, category, default_sets, default_reps) VALUES
+  ('Barbell Hip Thrust',              'lower_body', 3, 10),
+  ('Bulgarian Split Squat',           'lower_body', 3, 8),
+  ('Single-leg Romanian Deadlift',    'lower_body', 3, 8),
+  ('Lying Leg Curl',                  'lower_body', 3, 10),
+  ('Eccentric Step-downs',            'lower_body', 3, 8),
+  ('Single-leg Calf Raises',          'lower_body', 3, 10),
+  ('Cable Row',                       'upper_body', 3, 8),
+  ('Overhead Press',                  'upper_body', 3, 10),
+  ('Copenhagen Plank',                'core',       3, 20),
+  ('Dead Bug',                        'core',       3, 12)
+ON CONFLICT DO NOTHING;
+
+-- Data migration: May 13 2026 session
+INSERT INTO workout_sessions (id, session_date)
+VALUES ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', '2026-05-13')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO workout_entries (session_id, exercise, sets, reps, weight, unit, next_session, note) VALUES
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Barbell Hip Thrust',           3, 10, 45,   'lbs', 'higher',    NULL),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Bulgarian Split Squat',        3, 8,  20,   'lbs', 'equal',     NULL),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Single-leg Romanian Deadlift', 2, 8,  30,   'lbs', 'lower',     'only 2 sets'),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Lying Leg Curl',               3, 10, 45,   'lbs', 'equal',     NULL),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Eccentric Step-downs',         3, 8,  NULL, 'lbs', 'equal',     '12 inch box, bodyweight'),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Single-leg Calf Raises',       2, 10, 55,   'lbs', 'lower',     'only 2 sets'),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Cable Row',                    3, 8,  55,   'lbs', 'equal',     NULL),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Overhead Press',               3, 10, 40,   'lbs', 'equal',     '40 lbs total / 20 lbs per hand'),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Copenhagen Plank',             2, 20, NULL, 'lbs', 'equal',     '20 sec each side, ran out of time'),
+  ('b7e3f2a1-4c8d-4e9b-a012-3f5678901234', 'Dead Bug',                     3, 12, NULL, 'lbs', 'equal',     NULL)
+ON CONFLICT DO NOTHING;

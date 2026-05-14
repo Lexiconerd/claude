@@ -889,6 +889,116 @@ const styles = `
   }
   .sub-tab:hover { color: #5a4e3c; }
   .sub-tab.active { color: #b07d3a; border-bottom-color: #b07d3a; font-weight: 600; }
+
+  /* ── Fitness Log ──────────────────────────────────────────────────────── */
+  .session-strip {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .session-tab {
+    padding: 6px 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1.5px solid #e4ddd2;
+    border-radius: 8px;
+    background: #fffcf7;
+    color: #8a7d6b;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .session-tab:hover { border-color: #b07d3a; color: #5a4e3c; }
+  .session-tab.active { background: #3d3529; color: #fffcf7; border-color: #3d3529; font-weight: 600; }
+  .session-tab.new-session { border-style: dashed; }
+
+  .workout-table-wrap { overflow-x: auto; margin-bottom: 4px; }
+  .workout-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .workout-table th {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #b0a48e;
+    border-bottom: 1.5px solid #eee8dc;
+  }
+  .workout-table td {
+    padding: 9px 10px;
+    color: #3d3529;
+    border-bottom: 1px solid #f0ebe3;
+    vertical-align: top;
+  }
+  .workout-table tr:last-child td { border-bottom: none; }
+  .entry-name { font-weight: 500; }
+  .entry-note { font-size: 11px; color: #b0a48e; margin-top: 2px; }
+  .entry-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .entry-edit-btn {
+    font-size: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    padding: 3px 8px;
+    border: 1.5px solid #e4ddd2;
+    border-radius: 6px;
+    background: transparent;
+    color: #8a7d6b;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .entry-edit-btn:hover { border-color: #b07d3a; color: #5a4e3c; }
+  .next-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(61,53,41,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+  .modal {
+    background: #fffcf7;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 8px 32px rgba(61,53,41,0.18);
+  }
+  .modal-title { font-family: 'Fraunces', serif; font-size: 18px; color: #3d3529; margin: 0; }
+  .form-row { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: #b0a48e; text-transform: uppercase; }
+  .modal-actions { display: flex; gap: 10px; align-items: center; padding-top: 4px; }
+  .next-opt {
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 500;
+    border: 1.5px solid #e4ddd2;
+    border-radius: 8px;
+    background: transparent;
+    color: #8a7d6b;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .next-opt:hover { border-color: #b0a48e; }
 `;
 
 /* ━━━ Tasks Page ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -1697,6 +1807,234 @@ function RecurringTasksPage() {
   );
 }
 
+/* ━━━ Fitness ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const NEXT_SESSION_OPTIONS = [
+  { value: 'much_higher', label: '↑↑ Much Higher', color: '#5a9e6f', bg: '#eef7f0' },
+  { value: 'higher',      label: '↑ Higher',       color: '#8cb369', bg: '#f4faea' },
+  { value: 'equal',       label: '→ Equal',         color: '#8a7d6b', bg: '#f0ebe3' },
+  { value: 'lower',       label: '↓ Lower',         color: '#c49a3a', bg: '#fef8eb' },
+  { value: 'much_lower',  label: '↓↓ Much Lower',   color: '#d4644a', bg: '#fef0ed' },
+];
+function nextSessionMeta(v) { return NEXT_SESSION_OPTIONS.find(o => o.value === v) || NEXT_SESSION_OPTIONS[2]; }
+
+function FitnessLogPage() {
+  const { items: sessions, loading: lSess, addItem: addSession } = useSupabase('workout_sessions');
+  const { items: allEntries, loading: lEnt, addItem: addEntry, updateItem: updateEntry, deleteItem: deleteEntry } = useSupabase('workout_entries');
+  const { items: library } = useSupabase('exercise_library');
+
+  const [activeSession, setActiveSession] = useState(null);
+  const [showModal, setShowModal]         = useState(false);
+  const [editingEntry, setEditingEntry]   = useState(null);
+
+  const [exercise, setExercise]           = useState('');
+  const [customExercise, setCustomExercise] = useState('');
+  const [sets, setSets]                   = useState('');
+  const [reps, setReps]                   = useState('');
+  const [weight, setWeight]               = useState('');
+  const [unit, setUnit]                   = useState('lbs');
+  const [nextSess, setNextSess]           = useState('equal');
+  const [note, setNote]                   = useState('');
+
+  const sortedSessions = [...sessions].sort((a,b) => new Date(b.session_date) - new Date(a.session_date));
+
+  useEffect(() => {
+    if (sortedSessions.length > 0 && !activeSession) {
+      setActiveSession(sortedSessions[0].id);
+    }
+  }, [sessions]);
+
+  async function newSession() {
+    const today = new Date().toISOString().slice(0,10);
+    const { data } = await addSession({ session_date: today });
+    if (data) setActiveSession(data.id);
+  }
+
+  function openAdd() {
+    setEditingEntry(null);
+    const first = library.find(l => l.category === 'lower_body') || library[0];
+    setExercise(first?.name || 'Other');
+    setCustomExercise(''); setSets(''); setReps(''); setWeight(''); setUnit('lbs'); setNextSess('equal'); setNote('');
+    setShowModal(true);
+  }
+
+  function openEdit(entry) {
+    setEditingEntry(entry);
+    const inLib = library.some(l => l.name === entry.exercise);
+    setExercise(inLib ? entry.exercise : 'Other');
+    setCustomExercise(inLib ? '' : entry.exercise);
+    setSets(entry.sets ?? ''); setReps(entry.reps ?? '');
+    setWeight(entry.weight ?? ''); setUnit(entry.unit || 'lbs');
+    setNextSess(entry.next_session || 'equal'); setNote(entry.note || '');
+    setShowModal(true);
+  }
+
+  async function saveEntry() {
+    if (!activeSession) return;
+    const finalExercise = exercise === 'Other' ? customExercise.trim() : exercise;
+    if (!finalExercise) return;
+    const fields = {
+      session_id: activeSession,
+      exercise: finalExercise,
+      sets: sets !== '' ? parseInt(sets) : null,
+      reps: reps !== '' ? parseInt(reps) : null,
+      weight: weight !== '' ? parseFloat(weight) : null,
+      unit,
+      next_session: nextSess,
+      note: note.trim() || null,
+    };
+    if (editingEntry) await updateEntry(editingEntry.id, fields);
+    else await addEntry(fields);
+    setShowModal(false);
+  }
+
+  const sessionEntries = [...allEntries.filter(e => e.session_id === activeSession)]
+    .sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+
+  function fmtDate(d) {
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  const catOrder = { lower_body: 0, core: 1, upper_body: 2 };
+  const catLabel = { lower_body: 'Lower Body', core: 'Core', upper_body: 'Upper Body' };
+  const libByCat = ['lower_body', 'core', 'upper_body'].map(cat => ({
+    cat, label: catLabel[cat],
+    exercises: library.filter(l => l.category === cat).sort((a,b) => a.name.localeCompare(b.name)),
+  })).filter(g => g.exercises.length > 0);
+
+  if (lSess || lEnt) return <div className="loading">Loading...</div>;
+
+  return (
+    <>
+      <div className="session-strip">
+        {sortedSessions.map(s => (
+          <button key={s.id} className={`session-tab ${activeSession===s.id?'active':''}`}
+            onClick={() => setActiveSession(s.id)}>
+            {fmtDate(s.session_date)}
+          </button>
+        ))}
+        <button className="session-tab new-session" onClick={newSession}>+ New</button>
+      </div>
+
+      {activeSession ? (
+        <>
+          {sessionEntries.length === 0 ? (
+            <div className="empty"><p style={{fontStyle:'italic'}}>No exercises yet — add one below.</p></div>
+          ) : (
+            <div className="workout-table-wrap">
+              <table className="workout-table">
+                <thead><tr>
+                  <th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>Next</th><th></th>
+                </tr></thead>
+                <tbody>
+                  {sessionEntries.map(entry => {
+                    const ns = nextSessionMeta(entry.next_session);
+                    return (
+                      <tr key={entry.id}>
+                        <td>
+                          <div className="entry-name">{entry.exercise}</div>
+                          {entry.note && <div className="entry-note">{entry.note}</div>}
+                        </td>
+                        <td>{entry.sets ?? '—'}</td>
+                        <td>{entry.reps ?? '—'}</td>
+                        <td>{entry.weight != null ? `${entry.weight} ${entry.unit||'lbs'}` : '—'}</td>
+                        <td><span className="next-pill" style={{color:ns.color, background:ns.bg}}>{ns.label}</span></td>
+                        <td className="entry-actions">
+                          <button className="entry-edit-btn" onClick={() => openEdit(entry)}>Edit</button>
+                          <button className="delete-btn" onClick={() => deleteEntry(entry.id)}><TrashIcon /></button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={{marginTop:12}}>
+            <button className="add-btn" onClick={openAdd}>+ Add Exercise</button>
+          </div>
+        </>
+      ) : (
+        <div className="empty"><p style={{fontStyle:'italic'}}>Create a session to get started.</p></div>
+      )}
+
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">{editingEntry ? 'Edit Exercise' : 'Add Exercise'}</h3>
+
+            <div className="form-row">
+              <span className="form-label">Exercise</span>
+              <select className="text-input" value={exercise} onChange={e => setExercise(e.target.value)}>
+                {libByCat.map(g => (
+                  <optgroup key={g.cat} label={g.label}>
+                    {g.exercises.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                  </optgroup>
+                ))}
+                <option value="Other">Other…</option>
+              </select>
+            </div>
+            {exercise === 'Other' && (
+              <div className="form-row">
+                <span className="form-label">Name</span>
+                <input className="text-input" placeholder="Exercise name" value={customExercise}
+                  onChange={e => setCustomExercise(e.target.value)} />
+              </div>
+            )}
+
+            <div className="form-row">
+              <span className="form-label">Sets / Reps / Weight</span>
+              <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                <input className="mini-input" type="number" min="1" placeholder="Sets" value={sets}
+                  onChange={e => setSets(e.target.value)} style={{width:60}} />
+                <input className="mini-input" type="number" min="1" placeholder="Reps" value={reps}
+                  onChange={e => setReps(e.target.value)} style={{width:60}} />
+                <input className="mini-input" type="number" min="0" step="0.5" placeholder="Weight" value={weight}
+                  onChange={e => setWeight(e.target.value)} style={{width:72}} />
+                <select className="mini-select" value={unit} onChange={e => setUnit(e.target.value)}>
+                  <option value="lbs">lbs</option>
+                  <option value="kg">kg</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <span className="form-label">Next Session</span>
+              <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+                {NEXT_SESSION_OPTIONS.map(o => (
+                  <button key={o.value} className="next-opt"
+                    style={nextSess===o.value ? {background:o.bg, color:o.color, borderColor:o.color} : {}}
+                    onClick={() => setNextSess(o.value)}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-row">
+              <span className="form-label">Note</span>
+              <input className="text-input" placeholder="Optional note" value={note}
+                onChange={e => setNote(e.target.value)} />
+            </div>
+
+            <div className="modal-actions">
+              <button className="add-btn" onClick={saveEntry}>{editingEntry ? 'Save' : 'Add'}</button>
+              <button className="clear-btn" onClick={() => setShowModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function FitnessTrainingPage() {
+  return (
+    <div className="empty" style={{padding:'40px 0'}}>
+      <p style={{fontStyle:'italic', color:'#b0a48e'}}>Training plans and Strava integration coming soon.</p>
+    </div>
+  );
+}
+
 /* ━━━ Navigation config ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 const SECTIONS = [
   { id: "todos", label: "To-Dos", subTabs: [
@@ -1708,18 +2046,15 @@ const SECTIONS = [
     { id: "groceries", label: "Groceries" },
   ]},
   { id: "fitness", label: "Fitness", subTabs: [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "plan",      label: "Plan" },
-    { id: "log",       label: "Log" },
-    { id: "blocks",    label: "Blocks" },
-    { id: "shoes",     label: "Shoes" },
+    { id: "log",      label: "Log" },
+    { id: "training", label: "Training" },
   ]},
 ];
 
 /* ━━━ Root ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 export default function Hearth() {
   const [section, setSection] = useState("todos");
-  const [subTab, setSubTab] = useState({ todos: "onetime", food: "groceries", fitness: "dashboard" });
+  const [subTab, setSubTab] = useState({ todos: "onetime", food: "groceries", fitness: "log" });
   const [saveStatus, setSaveStatus] = useState("saved");
 
   function switchSection(id) { setSection(id); }
@@ -1734,8 +2069,10 @@ export default function Hearth() {
       case "todos/onetime":    return <TasksPage saveStatus={saveStatus} />;
       case "todos/recurring":  return <RecurringTasksPage />;
       case "todos/plants":     return <PlantsPage saveStatus={saveStatus} />;
-      case "food/groceries": return <GroceriesPage saveStatus={saveStatus} />;
-      default:               return <div className="empty"><p style={{fontStyle:"italic"}}>Coming soon</p></div>;
+      case "food/groceries":    return <GroceriesPage saveStatus={saveStatus} />;
+      case "fitness/log":       return <FitnessLogPage />;
+      case "fitness/training":  return <FitnessTrainingPage />;
+      default:                  return <div className="empty"><p style={{fontStyle:"italic"}}>Coming soon</p></div>;
     }
   }
 
